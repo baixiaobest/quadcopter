@@ -22,30 +22,14 @@ def queryFrame(conn, count):
             format = conn.recv(1024)
             parse = format.split()
             if parse[0]=="IMGFOR":
-                if parse[1] == "RAW":
-                    height = int(parse[2])
-                    width = int(parse[3])
-                    channel = int(parse[4])
-                    conn.sendall("OK")
-                    if channel == 1:
-                        if select.select([conn], [], [], 3)[0]:
-                            data = [ord(c) for c in conn.recv(height*width)]
-                            numpyData = np.uint8(data[:])
-                            conn.sendall("OK")
-                            return numpyData.reshape(height,width)
-                    elif channel == 3:
-                        numpyData = np.zeros((channel, width*height), dtype=np.uint8)
-                        for i in range(0,3):
-                            if select.select([conn], [], [], 3)[0]:
-                                data = [ord(c) for c in conn.recv(height*width)]
-                                numpyData[i,:] = np.uint8(data[:])
-                                conn.sendall("OK")
-                            else:
-                                return None
-                        img = cv2.merge((numpyData[0,:].reshape(height,width), numpyData[1,:].reshape(height,width),numpyData[2,:].reshape(height,width)))
-                        return img
                 if parse[1]=="JPG":
-                    return None
+                    size = int(parse[2])
+                    conn.sendall("OK")
+                    if select.select([conn], [], [], 10)[0]:
+                        data = [ord(c) for c in conn.recv(size)]
+                        compressed = np.uint8(data)
+                        image = cv2.imdecode(compressed, cv2.CV_LOAD_IMAGE_COLOR)
+                    return image
     return None
 
 
@@ -62,7 +46,7 @@ if __name__=="__main__":
                     frame = queryFrame(conn, 1)
                     if frame is not None and frame.size>0:
                         cv2.imshow("test",frame)
-                        cv2.destroyAllWindows()
+                    #cv2.destroyAllWindows()
                     c = cv2.waitKey(1)
                     if c == 27:
                         sys.exit()

@@ -18,28 +18,31 @@ def processRequest():
             if parse[0] == "TEST":
                 conn.sendall("testing")
             if parse[0] == "EXIT":
-                    sys.exit()
+                sys.exit()
             if parse[0] == "FRAME":
-                format = "RAW"
+                format = "JPG"
                 if len(parse) > 1:
                     format = parse[1]
                 frameQuery(conn, format)
-                    
+
 def frameQuery(conn, format):
     global camera
     if not camera:
         camera = cv2.VideoCapture(0)
     ret, colorframe = camera.read()
-    #frame = cv2.cvtColor(cv2.resize(colorframe, (60,60)), cv2.COLOR_BGR2GRAY)
-    frame = cv2.resize(colorframe, (100,100))
-    #frame = colorframe
+    #frame = cv2.cvtColor(cv2.resize(colorframe, (640,480)), cv2.COLOR_BGR2GRAY)
+    frame = cv2.resize(colorframe, (640,480))
     try:
         height, width, channel = frame.shape
     except:
         channel = 1
         height, width = frame.shape
-    if format == "RAW":
-        conn.sendall("IMGFOR RAW {0} {1} {2}".format(height, width, channel))
+
+#JPG format
+    if format == "JPG":
+        retval, compressed = cv2.imencode('.jpg', frame)
+        rows, cols = compressed.shape
+        conn.sendall("IMGFOR JPG {0} {1}".format(rows, cols))
     while 1:
         if select.select([conn], [], [], 0)[0]:
             data = conn.recv(1024)
@@ -47,43 +50,17 @@ def frameQuery(conn, format):
             if len(parse)!=0 and parse[0] == "OK":
                 break
     print "start sending image"
-    conn.setblocking(0)
-    #cv2.imshow("server", frame)
-    img = [[0 for x in range(height*width)] for y in range(channel)]
-    if channel == 3:
-        for i in range(0, height):
-            img[0][i*width:(i+1)*width] = frame[i,:,0]
-            img[1][i*width:(i+1)*width] = frame[i,:,1]
-            img[2][i*width:(i+1)*width] = frame[i,:,2]
-    else:
-        for i in range(0, height):
-            img[0][i*width:(i+1)*width] = frame[i,:]
-
-    for i in range(0,channel):
-        print i
-        data = [chr(c) for c in img[i][:]]
-        dataStream = ''.join(data)
-        conn.sendall(dataStream)
-        try:
-            if select.select([conn], [], [], 10)[0]:
-                if conn.recv(1024).split()[0]!="OK":
-                    break
-            else: break
-        except:
-            break
-    print "end"
-
-
+    conn.sendall(''.join([chr(c) for c in compressed[:,0]]))
 
 if __name__=="__main__":
     HOST = '10.120.54.48' #All available interfaces
     PORT = 8888#Arbitrary non-priviledged port
-
+    
     #create socket
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setblocking(1)
     print 'Socket Created'
-
+    
     #bind to port
     try:
         s.bind((HOST, PORT))
@@ -95,7 +72,7 @@ if __name__=="__main__":
     #listen to socket
     s.listen(10)
     print 'Socket is listening'
-
+    
     #accept incoming request
     while 1:
         #wait to accept a connection - blocking call
