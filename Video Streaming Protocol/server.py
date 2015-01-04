@@ -15,6 +15,7 @@ def processRequest():
             if not data:
                 return
             parse = data.split()
+            #server request
             if len(parse) != 0:
                 if parse[0] == "TEST":
                     conn.sendall("testing")
@@ -39,18 +40,17 @@ def frameQuery(conn, format):
         channel = 1
         height, width = frame.shape
 
-#JPG format
+    #JPG format
     if format == "JPG":
         retval, compressed = cv2.imencode('.jpg', frame)
         rows, cols = compressed.shape
         conn.sendall("IMGFOR JPG {0} {1}".format(rows, cols))
-    while 1:
-        if select.select([conn], [], [], 0)[0]:
-            data = conn.recv(1024)
-            parse = data.split()
-            if len(parse)!=0 and parse[0] == "OK":
-                break
-    print "start sending image"
+    if select.select([conn], [], [], 1)[0]:
+        data = conn.recv(1024)
+        parse = data.split()
+        if len(parse)==0 or parse[0] != "OK":
+            return
+    #marshal the compressed data to string
     conn.sendall(''.join([chr(c) for c in compressed[:,0]]))
 
 if __name__=="__main__":

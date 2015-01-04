@@ -15,26 +15,28 @@ def connect(ip, port):
     s.connect((ip, port))
     return s
 
-def queryFrame(conn, count):
-    if count == 1:
-        conn.sendall("FRAME")
-        if select.select([conn], [], [], 10)[0]:
-            format = conn.recv(1024)
-            parse = format.split()
-            if parse[0]=="IMGFOR":
-                if parse[1]=="JPG":
-                    size = int(parse[2])
-                    conn.sendall("OK")
-                    if select.select([conn], [], [], 10)[0]:
-                        data = [ord(c) for c in conn.recv(size)]
-                        compressed = np.uint8(data)
-                        image = cv2.imdecode(compressed, cv2.CV_LOAD_IMAGE_COLOR)
-                    return image
+def queryFrame(conn):
+    conn.sendall("FRAME")
+    if select.select([conn], [], [], 10)[0]:
+        format = conn.recv(1024)
+        parse = format.split()
+        if parse[0]=="IMGFOR":
+            if parse[1]=="JPG":
+                size = int(parse[2])
+                conn.sendall("OK")
+                if select.select([conn], [], [], 1)[0]:
+                    data = [ord(c) for c in conn.recv(size)]
+                    compressed = np.uint8(data)
+                    image = cv2.imdecode(compressed, cv2.CV_LOAD_IMAGE_COLOR)
+                else:
+                    return None
+                return image
     return None
 
 
 if __name__=="__main__":
     conn = connect("10.120.54.48",8888)
+    print "server connected"
     while 1:
         parse = None
         if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
@@ -43,8 +45,7 @@ if __name__=="__main__":
             if parse[0] == "FRAME":
                 count = 0
                 while 1:
-                    print "Query frame"
-                    frame = queryFrame(conn, 1)
+                    frame = queryFrame(conn)
                     if frame is not None and frame.size>0:
                         cv2.imshow("test".format(count),frame)
                     c = cv2.waitKey(1)
