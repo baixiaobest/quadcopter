@@ -9,28 +9,29 @@ from thread import *
 camera = 0
 
 def processRequest():
-    if select.select([conn], [], [], 5)[0]:
-        data = conn.recv(1024)
-        if not data:
-            return
-        parse = data.split()
-        if len(parse) != 0:
-            if parse[0] == "TEST":
-                conn.sendall("testing")
-            if parse[0] == "EXIT":
-                sys.exit()
-            if parse[0] == "FRAME":
-                format = "JPG"
-                if len(parse) > 1:
-                    format = parse[1]
-                frameQuery(conn, format)
+    while 1:
+        if select.select([conn], [], [], 5)[0]:
+            data = conn.recv(1024)
+            if not data:
+                return
+            parse = data.split()
+            if len(parse) != 0:
+                if parse[0] == "TEST":
+                    conn.sendall("testing")
+                if parse[0] == "EXIT":
+                    sys.exit()
+                if parse[0] == "FRAME":
+                    format = "JPG"
+                    if len(parse) > 1:
+                        format = parse[1]
+                    frameQuery(conn, format)
 
 def frameQuery(conn, format):
     global camera
     if not camera:
         camera = cv2.VideoCapture(0)
     ret, colorframe = camera.read()
-    #frame = cv2.cvtColor(cv2.resize(colorframe, (640,480)), cv2.COLOR_BGR2GRAY)
+    #frame = cv2.cvtColor(cv2.resize(colorframe, (200,200)), cv2.COLOR_BGR2GRAY)
     frame = cv2.resize(colorframe, (640,480))
     try:
         height, width, channel = frame.shape

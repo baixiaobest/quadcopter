@@ -41,15 +41,16 @@ if __name__=="__main__":
             stdinput = sys.stdin.readline()[:-1]
             parse = stdinput.split()
             if parse[0] == "FRAME":
+                count = 0
                 while 1:
                     print "Query frame"
                     frame = queryFrame(conn, 1)
                     if frame is not None and frame.size>0:
-                        cv2.imshow("test",frame)
-                    #cv2.destroyAllWindows()
+                        cv2.imshow("test".format(count),frame)
                     c = cv2.waitKey(1)
                     if c == 27:
                         sys.exit()
+                    count += 1
             if parse[0] == "OK":
                 conn.sendall("OK")
 
