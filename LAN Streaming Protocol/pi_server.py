@@ -4,8 +4,13 @@ import os
 import cv2
 import numpy as np
 import select
+import picamera
 from thread import *
+
 camera = 0
+stream = io.BytesIO()
+CAMERA_WIDTH = 640
+CAMERA_HEIGHT = 480
 
 def processRequest():
     while 1:
@@ -27,17 +32,18 @@ def processRequest():
                     frameQuery(conn, format)
 
 def frameQuery(conn, format):
-    global camera
-    if not camera:
-        camera = cv2.VideoCapture(0)
-    ret, frame = camera.read()
-    frame = cv2.resize(frame, (640,480))
+    if camera == 0:
+        with picamera.PiCamera() as camera:
+            camera.resolution = (CAMERA_WIDTH, CAMERA_HEIGHT)
+    camera.capture(stream, format='jpeg')
+    numpyData = np.fromstring(stream.getvalue(), dtype=np.uint8)
+    frame = cv2.imdecode(data, cv2.CV_LOAD_IMAGE_COLOR)
     try:
         height, width, channel = frame.shape
     except:
         channel = 1
         height, width = frame.shape
-
+    
     #JPG format
     if format == "JPG":
         retval, compressed = cv2.imencode('.jpg', frame)
@@ -68,8 +74,8 @@ if __name__=="__main__":
         sys.exit()
     print 'Socket bind complete'
 
-    #listen to socket
-    s.listen(10)
+#listen to socket
+s.listen(10)
     print 'Socket is listening'
     
     #accept incoming request
@@ -82,5 +88,5 @@ if __name__=="__main__":
             #if os.fork()==0:
             print "processing request"
             processRequest()
-    conn.close()
+conn.close()
     s.close()

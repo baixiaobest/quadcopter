@@ -28,7 +28,7 @@ def queryFrame(conn):
                     data = [[ord(c)] for c in recvAll(conn, size)]
                     compressed = np.uint8(data)
                     actualsize = compressed.size
-                    print "expected {0} actual {1}".format(size,actualsize)
+                    #print "expected {0} actual {1}".format(size,actualsize)
                     image = cv2.imdecode(compressed, cv2.CV_LOAD_IMAGE_COLOR)
                     return image
                 else:
@@ -61,6 +61,8 @@ if __name__=="__main__":
                     frame = queryFrame(conn)
                     if frame is not None and frame.size>0:
                         cv2.imshow("test".format(count),frame)
+                    else:
+                        print "Drop Frame"
                     c = cv2.waitKey(1)
                     if c == 27:
                         sys.exit()
