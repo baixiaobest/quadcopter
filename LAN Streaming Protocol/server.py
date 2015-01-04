@@ -27,10 +27,7 @@ def processRequest():
                     frameQuery(conn, format)
 
 def frameQuery(conn, format):
-    global camera
-    if not camera:
-        camera = cv2.VideoCapture(0)
-    ret, frame = camera.read()
+    ret, frame = captureFrame()
     frame = cv2.resize(frame, (640,480))
     try:
         height, width, channel = frame.shape
@@ -43,13 +40,19 @@ def frameQuery(conn, format):
         retval, compressed = cv2.imencode('.jpg', frame)
         rows, cols = compressed.shape
         conn.sendall("IMGFOR JPG {0} {1}".format(rows, cols))
-    if select.select([conn], [], [], 1)[0]:
+    if select.select([conn], [], [], 0.1)[0]:
         data = conn.recv(1024)
         parse = data.split()
         if len(parse)==0 or parse[0] != "OK":
             return
     #marshal the compressed data to string
     conn.sendall(''.join([chr(c) for c in compressed[:,0]]))
+
+def captureFrame():
+    global camera
+    if not camera:
+        camera = cv2.VideoCapture(0)
+    return camera.read()
 
 if __name__=="__main__":
     HOST = '10.120.54.48' #All available interfaces

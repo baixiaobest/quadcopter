@@ -3,6 +3,7 @@ import sys
 import cv2
 import select
 import numpy as np
+import time
 
 
 def connect(ip, port):
@@ -24,7 +25,7 @@ def queryFrame(conn):
             if parse[1]=="JPG":
                 size = int(parse[2])
                 conn.sendall("OK")
-                if select.select([conn], [], [], 1)[0]:
+                if select.select([conn], [], [], 0.1)[0]:
                     data = [[ord(c)] for c in recvAll(conn, size)]
                     compressed = np.uint8(data)
                     actualsize = compressed.size
@@ -40,9 +41,9 @@ def recvAll(conn, size):
     while 1:
         if len(dataString) == size:
             return dataString
-        if select.select([conn],[],[],1):
+        if select.select([conn],[],[],0.1):
             dataString += conn.recv(size)
-        #if no incoming data within on sec, drop it
+        #if no incoming data within a sec, drop it
         else:
             return None
 
