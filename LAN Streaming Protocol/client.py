@@ -25,13 +25,26 @@ def queryFrame(conn):
                 size = int(parse[2])
                 conn.sendall("OK")
                 if select.select([conn], [], [], 1)[0]:
-                    data = [ord(c) for c in conn.recv(size)]
+                    data = [[ord(c)] for c in recvAll(conn, size)]
                     compressed = np.uint8(data)
+                    actualsize = compressed.size
+                    print "expected {0} actual {1}".format(size,actualsize)
                     image = cv2.imdecode(compressed, cv2.CV_LOAD_IMAGE_COLOR)
+                    return image
                 else:
                     return None
-                return image
     return None
+
+def recvAll(conn, size):
+    dataString = ""
+    while 1:
+        if len(dataString) == size:
+            return dataString
+        if select.select([conn],[],[],1):
+            dataString += conn.recv(size)
+        #if no incoming data within on sec, drop it
+        else:
+            return None
 
 
 if __name__=="__main__":
