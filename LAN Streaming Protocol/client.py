@@ -41,7 +41,7 @@ def recvAll(conn, size):
     while 1:
         if len(dataString) == size:
             return dataString
-        if select.select([conn],[],[],0.1):
+        if select.select([conn],[],[],0.5):
             dataString += conn.recv(size)
         #if no incoming data within a sec, drop it
         else:
@@ -64,6 +64,8 @@ if __name__=="__main__":
                         cv2.imshow("test".format(count),frame)
                     else:
                         print "Drop Frame"
+                        while select.select([conn], [], [], 1)[0]:
+                            conn.recv(1024)
                     c = cv2.waitKey(1)
                     if c == 27:
                         sys.exit()

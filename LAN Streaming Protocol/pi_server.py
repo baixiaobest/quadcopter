@@ -6,6 +6,7 @@ import numpy as np
 import select
 import picamera
 from thread import *
+import io
 
 camera = 0
 stream = io.BytesIO()
@@ -58,7 +59,7 @@ def frameQuery(conn, format):
     conn.sendall(''.join([chr(c) for c in compressed[:,0]]))
 
 if __name__=="__main__":
-    HOST = '10.120.54.48' #All available interfaces
+    HOST = str(socket.gethostbyname(socket.gethostname())) #All available interfaces
     PORT = 8888#Arbitrary non-priviledged port
     
     #create socket
@@ -75,7 +76,7 @@ if __name__=="__main__":
     print 'Socket bind complete'
 
 #listen to socket
-s.listen(10)
+    s.listen(10)
     print 'Socket is listening'
     
     #accept incoming request
@@ -88,5 +89,5 @@ s.listen(10)
             #if os.fork()==0:
             print "processing request"
             processRequest()
-conn.close()
+    conn.close()
     s.close()

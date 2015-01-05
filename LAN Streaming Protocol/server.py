@@ -55,7 +55,7 @@ def captureFrame():
     return camera.read()
 
 if __name__=="__main__":
-    HOST = '10.120.54.48' #All available interfaces
+    HOST = str(socket.gethostbyname(socket.gethostname())) #All available interfaces
     PORT = 8888#Arbitrary non-priviledged port
     
     #create socket
