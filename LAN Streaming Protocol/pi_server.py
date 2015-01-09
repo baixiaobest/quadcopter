@@ -33,12 +33,13 @@ def processRequest():
                     frameQuery(conn, format)
 
 def frameQuery(conn, format):
-    if camera == 0:
-        with picamera.PiCamera() as camera:
-            camera.resolution = (CAMERA_WIDTH, CAMERA_HEIGHT)
-    camera.capture(stream, format='jpeg')
+    with picamera.PiCamera() as camera:
+        camera.resolution = (CAMERA_WIDTH, CAMERA_HEIGHT)
+        camera.capture(stream, format='jpeg')
     numpyData = np.fromstring(stream.getvalue(), dtype=np.uint8)
-    frame = cv2.imdecode(data, cv2.CV_LOAD_IMAGE_COLOR)
+    if not numpyData.any():
+        return
+    frame = cv2.imdecode(numpyData, cv2.CV_LOAD_IMAGE_COLOR)
     try:
         height, width, channel = frame.shape
     except:

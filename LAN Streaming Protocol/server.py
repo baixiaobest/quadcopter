@@ -20,20 +20,21 @@ def processRequest():
                     conn.sendall("testing")
                 if parse[0] == "EXIT":
                     sys.exit()
+                #request one frame
                 if parse[0] == "FRAME":
                     format = "JPG"
                     if len(parse) > 1:
                         format = parse[1]
                     frameQuery(conn, format)
+                #subscribe for frames
+                if len(parse) == 2 and parse[0] == "SUBFRAME":
+                    numFrames = int(parse[1])
+                    subscribeFrames(conn, numFrames)
 
 def frameQuery(conn, format):
     ret, frame = captureFrame()
     frame = cv2.resize(frame, (640,480))
-    try:
-        height, width, channel = frame.shape
-    except:
-        channel = 1
-        height, width = frame.shape
+    height, width, channel = frame.shape
 
     #JPG format
     if format == "JPG":
@@ -45,8 +46,31 @@ def frameQuery(conn, format):
         parse = data.split()
         if len(parse)==0 or parse[0] != "OK":
             return
-    #marshal the compressed data to string
-    conn.sendall(''.join([chr(c) for c in compressed[:,0]]))
+        #marshal the compressed data to string
+        conn.sendall(''.join([chr(c) for c in compressed[:,0]]))
+
+def subscribeFrames(conn, numFrames):
+    #motion JPEG
+    conn.sendall("IMGFOR JPG")
+    if select.select([conn],[],[],1)[0]:
+        data = conn.recv(1024)
+        parse = data.split()
+        if len(parse)==0 or parse[0] != "OK":
+            return
+
+        for i in range (0,numFrames):
+            ret, frame = captureFrame()
+            frame = cv2.resize(frame, (640, 480))
+            retval, compressed = cv2.imencode('.jpg', frame)
+            size, cols = compressed.shape
+            sendData = "start"+''.join([chr(c) for c in compressed[:,0]])
+            conn.sendall(sendData)
+        
+        conn.sendall("end")
+
+def marshalImage(img):
+    _, compressed = cv2.imencode('.jpg',img)
+    return ''.join([chr(c) for c in compressed[:,0]])
 
 def captureFrame():
     global camera
@@ -67,8 +91,10 @@ if __name__=="__main__":
     try:
         s.bind((HOST, PORT))
     except socket.error, msg:
-        print 'Bind Failed'
-        sys.exit()
+        PORT = 8887
+        s.bind((HOST, PORT))
+        #print 'Bind Failed'
+        #sys.exit()
     print 'Socket bind complete'
 
     #listen to socket

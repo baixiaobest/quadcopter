@@ -25,7 +25,7 @@ def queryFrame(conn):
             if parse[1]=="JPG":
                 size = int(parse[2])
                 conn.sendall("OK")
-                if select.select([conn], [], [], 0.1)[0]:
+                if select.select([conn], [], [], 1)[0]:
                     data = [[ord(c)] for c in recvAll(conn, size)]
                     compressed = np.uint8(data)
                     actualsize = compressed.size
@@ -36,12 +36,13 @@ def queryFrame(conn):
                     return None
     return None
 
+
 def recvAll(conn, size):
     dataString = ""
     while 1:
         if len(dataString) == size:
             return dataString
-        if select.select([conn],[],[],0.5):
+        if select.select([conn],[],[],1):
             dataString += conn.recv(size)
         #if no incoming data within a sec, drop it
         else:
@@ -49,7 +50,10 @@ def recvAll(conn, size):
 
 
 if __name__=="__main__":
-    conn = connect("10.120.54.48",8888)
+    try:
+        conn = connect("169.232.187.81",8888)
+    except:
+        conn = connect("169.232.187.81",8887)
     print "server connected"
     while 1:
         parse = None
@@ -61,7 +65,7 @@ if __name__=="__main__":
                 while 1:
                     frame = queryFrame(conn)
                     if frame is not None and frame.size>0:
-                        cv2.imshow("test".format(count),frame)
+                        cv2.imshow("test",frame)
                     else:
                         print "Drop Frame"
                         while select.select([conn], [], [], 1)[0]:
@@ -70,6 +74,43 @@ if __name__=="__main__":
                     if c == 27:
                         sys.exit()
                     count += 1
+            #frame subscription
+            if parse[0] == "SUBFRAME":
+                numFrames = 100
+                if len(parse) == 2:
+                    numFrames = parse[1]
+                conn.sendall("SUBFRAME {0}".format(numFrames))
+                if select.select([conn],[],[],1)[0]:
+                    format = conn.recv(128)
+                    parse = format.split()
+                    if len(parse)<=2 and parse[0]!="IMGFOR" and parse[1]!="JPG":
+                        continue
+                    conn.sendall("OK")
+            
+
+                dataArray = []
+                while 1:
+                    dataString = ""
+                    endOfData = False
+                    if select.select([conn], [], [], 1)[0]:
+                        dataString = conn.recv(60000)
+                        if "end" in dataString:
+                            dataString = dataString[:-3]
+                            endOfData = True
+                        if "start" in dataString:
+                            dataArray[len(dataArray):] = filter(None,dataString.split("start"))
+                    if endOfData:
+                        break
+                for rawData in dataArray:
+                    compressed = np.uint8([[ord(c)] for c in rawData])
+                    image = cv2.imdecode(compressed, cv2.CV_LOAD_IMAGE_COLOR)
+                    if image is not None and image.size != 0:
+                        cv2.imshow("test",image)
+                    c = cv2.waitKey(10)
+
+                cv2.destroyAllWindows()
+                        
+                
             if parse[0] == "OK":
                 conn.sendall("OK")
 
