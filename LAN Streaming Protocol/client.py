@@ -51,9 +51,9 @@ def recvAll(conn, size):
 
 if __name__=="__main__":
     try:
-        conn = connect("169.232.187.81",8888)
+        conn = connect("169.232.187.76",8888)
     except:
-        conn = connect("169.232.187.81",8887)
+        conn = connect("169.232.187.76",8887)
     print "server connected"
     while 1:
         parse = None
@@ -70,7 +70,7 @@ if __name__=="__main__":
                         print "Drop Frame"
                         while select.select([conn], [], [], 1)[0]:
                             conn.recv(1024)
-                    c = cv2.waitKey(1)
+                    c = cv2.waitKey(5)
                     if c == 27:
                         sys.exit()
                     count += 1
