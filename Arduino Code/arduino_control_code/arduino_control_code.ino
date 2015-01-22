@@ -70,7 +70,7 @@ uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\
 int MAX_ESC_RATE = 2000;
 int MIN_ESC_RATE = 800;
 
-Servo ESC1, ESC2, ESC3, ESC4
+Servo ESC1, ESC2, ESC3, ESC4;
 int ESC1_CTR_PIN = 6;
 int ESC2_CTR_PIN = 9;
 int ESC3_CTR_PIN = 10;
