@@ -16,6 +16,19 @@
 *   You should have received a copy of the GNU General Public License
 *   along with Quadcopter.  If not, see <http://www.gnu.org/licenses/>. 
 ******************************************************************************/
+
+/************************DESCRIPTION OF QUADCOPTER ROTORS ARRANGEMENT***********
+                  motor 0 CCW    motor 3 CW               X
+                       (O)        (O)                     ^
+                         \        /                       |
+                          \  $  /                         |
+                            $$$                           |
+                            $$$               Y<----------+
+                          /     \
+                        /         \
+                      (O)          (O)
+                  motor 1 CW    motor 2 CCW
+/********************************************************************************/
 //select orientation representation mode here
 #define OUTPUT_READABLE_YAWPITCHROLL
 //#define OUTPUT_TEAPOT
@@ -64,15 +77,17 @@ float ypr[3];         //[yaw, pitch, roll]  yaw/pitch/roll container and gravity
 //teapot demo
 uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\n' };
 
-//setup for ESC
+/*********************************SETUP FOR ESC************************************/
 int MAX_ESC_RATE = 2000;
 int MIN_ESC_RATE = 800;
 
 Servo ESC1, ESC2, ESC3, ESC4;
-int ESC1_CTR_PIN = 6;
-int ESC2_CTR_PIN = 9;
-int ESC3_CTR_PIN = 10;
-int ESC4_CTR_PIN = 11;
+PROGMEM int ESC1_CTR_PIN = 6;
+PROGMEM int ESC2_CTR_PIN = 9;
+PROGMEM int ESC3_CTR_PIN = 10;
+PROGMEM int ESC4_CTR_PIN = 11;
+
+int ESCs_pid_offset[4] = {0,0,0,0};
 
 //flight status
 enum flightMode{GROUND, TAKEOFF, LANDING, ALTITUDE_HOLD, FREE};
@@ -90,11 +105,21 @@ class PID_Pose
     PID yaw_pid;
     PID pitch_pid;
     PID roll_pid;
+    double* m_current_ypr;
+    double* m_destined_ypr;
+    double error_tolerance; //error allowed in degrees
   public:
     PID_Pose(double *current_ypr, double *output, double *destined_ypr, 
              double *k_yaw, double *k_pitch, double *k_roll,int sample_rate);
     void compute();
+    void interpret_output(double* raw_output, int* ESC_output);
 };
+
+
+/*Initialize the PID control for yaw/pitch/roll
+orientation is represented in yaw/pitch/roll format
+you need to supply current ypr, container for raw PID output, destined ypr, PID constants for
+yaw pitch and roll, and sample rate. the default sample rate is 50ms*/
 
 PID_Pose::PID_Pose(double *current_ypr, double *output, double *destined_ypr, 
                    double *k_yaw, double *k_pitch, double *k_roll, int sample_rate=50)
@@ -102,6 +127,8 @@ PID_Pose::PID_Pose(double *current_ypr, double *output, double *destined_ypr,
   pitch_pid(&current_ypr[1], &output[1], &destined_ypr[1], k_pitch[0], k_pitch[1], k_yaw[2], DIRECT),
   roll_pid(&current_ypr[2], &output[2], &destined_ypr[2], k_roll[0], k_roll[1], k_roll[2], DIRECT)
 {
+  m_current_ypr = current_ypr;
+  m_destined_ypr = destined_ypr;
   yaw_pid.SetSampleTime(sample_rate);
   pitch_pid.SetSampleTime(sample_rate);
   roll_pid.SetSampleTime(sample_rate);
@@ -111,8 +138,12 @@ PID_Pose::PID_Pose(double *current_ypr, double *output, double *destined_ypr,
   yaw_pid.SetOutputLimits(-500,500);
   pitch_pid.SetOutputLimits(-500,500);
   roll_pid.SetOutputLimits(-500,500);
+  error_tolerance = 3;
 }
 
+/*This function should be call every loop, if elapsed time between last time
+pid is evaluated and current time is larger than sample_rate, this function will 
+compute the pid raw_output for three aixs of orientation (yaw/pitch/roll)*/
 void PID_Pose::compute()
 {
   yaw_pid.Compute();
@@ -120,16 +151,43 @@ void PID_Pose::compute()
   roll_pid.Compute();
 }
 
+/*a mapping function from raw PID output to actual offset in four ESCs*/
+void PID_Pose::interpret_output(double* raw_output, int* ESC_output)
+{
+  ESC_output[0]=0; ESC_output[1]=0; ESC_output[2]=0;
+  if(abs(m_destined_ypr[0]-m_current_ypr[0]) >= error_tolerance)
+  {
+      ESC_output[0] = raw_output[0];
+      ESC_output[2] = raw_output[0];
+      ESC_output[1] = -raw_output[0];
+      ESC_output[3] = -raw_output[0];
+  }else if(abs(m_destined_ypr[1]-m_current_ypr[1]) >= error_tolerance)
+  {
+
+      ESC_output[0] = raw_output[1];
+      ESC_output[1] = -raw_output[1];
+      ESC_output[2] = -raw_output[1];
+      ESC_output[3] = raw_output[1];
+  }else if(abs(m_destined_ypr[2]-m_current_ypr[2]) >= error_tolerance)
+  {
+
+      ESC_output[0] = raw_output[2];
+      ESC_output[1] = raw_output[2];
+      ESC_output[2] = -raw_output[2];
+      ESC_output[3] = -raw_output[2];
+  }
+}
+
 /************************************PID CONTROLLER******************************/
-double Kp_yaw = 1;
-double Ki_yaw = 0;
-double Kd_yaw = 0;
-double Kp_pitch = 1;
-double Ki_pitch = 0;
-double Kd_pitch = 0;
-double Kp_roll = 1;
-double Ki_roll = 0;
-double Kd_roll = 0;
+PROGMEM double Kp_yaw = 1;
+PROGMEM double Ki_yaw = 0;
+PROGMEM double Kd_yaw = 0;
+PROGMEM double Kp_pitch = 1;
+PROGMEM double Ki_pitch = 0;
+PROGMEM double Kd_pitch = 0;
+PROGMEM double Kp_roll = 1;
+PROGMEM double Ki_roll = 0;
+PROGMEM double Kd_roll = 0;
 double K_yaw_pid[3] = {Kp_yaw, Ki_yaw, Kd_yaw};
 double K_pitch_pid[3] = {Kp_pitch, Ki_pitch, Kd_pitch};
 double K_roll_pid[3] = {Kp_roll, Ki_roll, Kd_roll};
@@ -140,7 +198,7 @@ PID_Pose pose(current_ypr, output, destined_ypr, K_yaw_pid, K_pitch_pid, K_roll_
 
 
 /***********************************************************
-****                 interrupt routine                  ****
+****                 INTERRUPT ROUTINE                  ****
 ***********************************************************/
 volatile bool mpuInterrupt = false;
 void interruptRoutine()
@@ -231,17 +289,20 @@ void loop()
   if(mpuInterrupt || fifoCount >= packetSize)
     interruptResponse();
   pose.compute();
-  Serial.print("ypr pid output: ");
-  Serial.print(output[0]);
-  Serial.print("\t");
-  Serial.print(output[1]);
-  Serial.print("\t");
-  Serial.print(output[2]);
-  Serial.print("ypr: ");
+  pose.interpret_output(output, ESCs_pid_offset);
+  Serial.print(F("ypr pid output: "));
+  Serial.print(ESCs_pid_offset[0]);
+  Serial.print(F("\t"));
+  Serial.print(ESCs_pid_offset[1]);
+  Serial.print(F("\t"));
+  Serial.print(ESCs_pid_offset[2]);
+  Serial.print(F("\t"));
+  Serial.print(ESCs_pid_offset[3]);
+  Serial.print(F("ypr: "));
   Serial.print(current_ypr[0]);
-  Serial.print("\t");
+  Serial.print(F("\t"));
   Serial.print(current_ypr[1]);
-  Serial.print("\t");
+  Serial.print(F("\t"));
   Serial.println(current_ypr[2]);
 }
 
@@ -293,7 +354,8 @@ void interruptResponse()
   if(mpuIntStatus & 0x80)
   {
     if(flightStatus == GROUND){
-      Serial.println("Initia free fall protection precedure");
+      Serial.println(F("Initia free fall protection precedure"));
+      freeFallTakeOff();
     }
   }
 }
@@ -304,4 +366,3 @@ void freeFallTakeOff()
 {
   
 }
-
