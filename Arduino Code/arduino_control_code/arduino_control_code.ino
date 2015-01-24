@@ -1,5 +1,5 @@
 /******************************************************************************  
-*   ©copyright Baixiao Huang
+*   ©copyright 2015 Baixiao Huang
 *   
 *   This file is part of Quadcopter.
 *   
@@ -20,7 +20,7 @@
 /************************DESCRIPTION OF QUADCOPTER ROTORS ARRANGEMENT***********
                   motor 0 CCW    motor 3 CW               X
                        (O)        (O)                     ^
-                         \        /                       |
+                        \         /                       |
                           \  $  /                         |
                             $$$                           |
                             $$$               Y<----------+
@@ -113,6 +113,9 @@ class PID_Pose
              double *k_yaw, double *k_pitch, double *k_roll,int sample_rate);
     void compute();
     void interpret_output(double* raw_output, int* ESC_output);
+    void setYawPid(double Kp, double Ki, double Kd){yaw_pid.SetTunings(Kp, Ki, Kd);}
+    void setPitchPid(double Kp, double Ki, double Kd){pitch_pid.SetTunings(Kp, Ki, Kd);}
+    void setRollPid(double Kp, double Ki, double Kd){roll_pid.SetTunings(Kp, Ki, Kd);}
 };
 
 
