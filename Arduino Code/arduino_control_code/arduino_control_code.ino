@@ -89,6 +89,8 @@ PROGMEM int ESC4_CTR_PIN = 11;
 
 int ESCs_pid_offset[4] = {0,0,0,0};
 
+int throttle = MIN_ESC_RATE;
+
 //flight status
 enum flightMode{GROUND, TAKEOFF, LANDING, ALTITUDE_HOLD, FREE};
 int flightStatus = GROUND;
@@ -188,7 +190,7 @@ PROGMEM double Kd_yaw = 0;
 PROGMEM double Kp_pitch = 1;
 PROGMEM double Ki_pitch = 0;
 PROGMEM double Kd_pitch = 0;
-PROGMEM double Kp_roll = 1;
+PROGMEM double Kp_roll = 0.5;
 PROGMEM double Ki_roll = 0;
 PROGMEM double Kd_roll = 0;
 double K_yaw_pid[3] = {Kp_yaw, Ki_yaw, Kd_yaw};
@@ -223,6 +225,8 @@ void ESC_setup()
   ESC2.writeMicroseconds(MIN_ESC_RATE);
   ESC3.writeMicroseconds(MIN_ESC_RATE);
   ESC4.writeMicroseconds(MIN_ESC_RATE);
+  while(!Serial.available());
+  Serial.read();
 }
 
 void setup()
@@ -293,14 +297,16 @@ void loop()
     interruptResponse();
   pose.compute();
   pose.interpret_output(output, ESCs_pid_offset);
-  Serial.print(F("ypr pid output: "));
+  checkCommunication();
+  controlESCs();
+  /*Serial.print(F("ypr pid output: "));
   Serial.print(ESCs_pid_offset[0]);
   Serial.print(F("\t"));
   Serial.print(ESCs_pid_offset[1]);
   Serial.print(F("\t"));
   Serial.print(ESCs_pid_offset[2]);
   Serial.print(F("\t"));
-  Serial.print(ESCs_pid_offset[3]);
+  Serial.print(ESCs_pid_offset[3]);*/
   Serial.print(F("ypr: "));
   Serial.print(current_ypr[0]);
   Serial.print(F("\t"));
@@ -368,4 +374,30 @@ void interruptResponse()
 void freeFallTakeOff()
 {
   
+}
+
+/*************************************CONTROL************************************/
+void controlESCs()
+{
+  if(throttle<MIN_ESC_RATE) throttle = MIN_ESC_RATE;
+  ESC1.writeMicroseconds(throttle+ESCs_pid_offset[0] < MIN_ESC_RATE ? MIN_ESC_RATE : throttle+ESCs_pid_offset[0]);
+  ESC2.writeMicroseconds(throttle+ESCs_pid_offset[1] < MIN_ESC_RATE ? MIN_ESC_RATE : throttle+ESCs_pid_offset[1]);
+  ESC3.writeMicroseconds(throttle+ESCs_pid_offset[2] < MIN_ESC_RATE ? MIN_ESC_RATE : throttle+ESCs_pid_offset[2]);
+  ESC4.writeMicroseconds(throttle+ESCs_pid_offset[3] < MIN_ESC_RATE ? MIN_ESC_RATE : throttle+ESCs_pid_offset[3]);
+}
+
+/**********************************COMMUNICATION*********************************/
+void checkCommunication()
+{
+  if(Serial.available())
+    throttle = Serial.parseInt();
+  if(throttle == 0)
+  {
+    ESC1.writeMicroseconds(MIN_ESC_RATE);
+    ESC2.writeMicroseconds(MIN_ESC_RATE);
+    ESC3.writeMicroseconds(MIN_ESC_RATE);
+    ESC4.writeMicroseconds(MIN_ESC_RATE);
+    while(!Serial.available());
+    Serial.read();
+  }
 }
