@@ -41,6 +41,9 @@
 #include "MPU6050_6Axis_MotionApps20.h"
 #include <Servo.h>
 #include <PID_v1.h>
+//#include <SPI.h>
+//#include <nRF24L01.h>
+//#include <RF24.h>
 /*******************************************************************************/
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
@@ -82,10 +85,10 @@ int MAX_ESC_RATE = 2000;
 int MIN_ESC_RATE = 800;
 
 Servo ESC1, ESC2, ESC3, ESC4;
-PROGMEM int ESC1_CTR_PIN = 6;
-PROGMEM int ESC2_CTR_PIN = 9;
-PROGMEM int ESC3_CTR_PIN = 10;
-PROGMEM int ESC4_CTR_PIN = 11;
+PROGMEM int ESC1_CTR_PIN = 5;
+PROGMEM int ESC2_CTR_PIN = 6;
+PROGMEM int ESC3_CTR_PIN = 9;
+PROGMEM int ESC4_CTR_PIN = 10;
 
 int ESCs_pid_offset[4] = {0,0,0,0};
 
@@ -94,6 +97,7 @@ int throttle = MIN_ESC_RATE;
 //flight status
 enum flightMode{GROUND, TAKEOFF, LANDING, ALTITUDE_HOLD, FREE};
 int flightStatus = GROUND;
+
 
 
 /***********************************************************
@@ -363,7 +367,7 @@ void interruptResponse()
   if(mpuIntStatus & 0x80)
   {
     if(flightStatus == GROUND){
-      Serial.println(F("Initia free fall protection precedure"));
+      Serial.println(F("Initiate free fall protection precedure"));
       freeFallTakeOff();
     }
   }
@@ -391,13 +395,10 @@ void checkCommunication()
 {
   if(Serial.available())
     throttle = Serial.parseInt();
-  if(throttle == 0)
+  if(throttle == 1)
   {
-    ESC1.writeMicroseconds(MIN_ESC_RATE);
-    ESC2.writeMicroseconds(MIN_ESC_RATE);
-    ESC3.writeMicroseconds(MIN_ESC_RATE);
-    ESC4.writeMicroseconds(MIN_ESC_RATE);
-    while(!Serial.available());
-    Serial.read();
+    destined_ypr[0] = current_ypr[0]; //calibrate
+    Serial.print("resetting yaw to ");
+    Serial.println(current_ypr[0]);
   }
 }
