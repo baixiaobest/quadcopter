@@ -41,9 +41,9 @@
 #include "MPU6050_6Axis_MotionApps20.h"
 #include <Servo.h>
 #include <PID_v1.h>
-//#include <SPI.h>
-//#include <nRF24L01.h>
-//#include <RF24.h>
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
 /*******************************************************************************/
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
@@ -85,10 +85,10 @@ int MAX_ESC_RATE = 2000;
 int MIN_ESC_RATE = 800;
 
 Servo ESC1, ESC2, ESC3, ESC4;
-PROGMEM int ESC1_CTR_PIN = 5;
-PROGMEM int ESC2_CTR_PIN = 6;
-PROGMEM int ESC3_CTR_PIN = 9;
-PROGMEM int ESC4_CTR_PIN = 10;
+ int ESC1_CTR_PIN = 5;
+ int ESC2_CTR_PIN = 6;
+ int ESC3_CTR_PIN = 9;
+ int ESC4_CTR_PIN = 10;
 
 int ESCs_pid_offset[4] = {0,0,0,0};
 
@@ -98,6 +98,12 @@ int throttle = MIN_ESC_RATE;
 enum flightMode{GROUND, TAKEOFF, LANDING, ALTITUDE_HOLD, FREE};
 int flightStatus = GROUND;
 
+/*********************************SETUP FOR RADIO************************************/
+const uint64_t pipe = 0xE8E8F0F0E1LL;
+#define CE_PIN   4
+#define CSN_PIN 7
+RF24 radio(CE_PIN, CSN_PIN); 
+char data;
 
 
 /***********************************************************
@@ -188,18 +194,15 @@ void PID_Pose::interpret_output(double* raw_output, int* ESC_output)
 }
 
 /************************************PID CONTROLLER******************************/
-PROGMEM double Kp_yaw = 1;
-PROGMEM double Ki_yaw = 0;
-PROGMEM double Kd_yaw = 0;
-PROGMEM double Kp_pitch = 1;
-PROGMEM double Ki_pitch = 0;
-PROGMEM double Kd_pitch = 0;
-PROGMEM double Kp_roll = 0.5;
-PROGMEM double Ki_roll = 0;
-PROGMEM double Kd_roll = 0;
+double Kp_yaw = 1;
+double Ki_yaw = 0;
+double Kd_yaw = 0;
+double Kp_pitch_roll = 1;
+double Ki_pitch_roll = 0;
+double Kd_pitch_roll = 0;
 double K_yaw_pid[3] = {Kp_yaw, Ki_yaw, Kd_yaw};
-double K_pitch_pid[3] = {Kp_pitch, Ki_pitch, Kd_pitch};
-double K_roll_pid[3] = {Kp_roll, Ki_roll, Kd_roll};
+double K_pitch_pid[3] = {Kp_pitch_roll, Ki_pitch_roll, Kd_pitch_roll};
+double K_roll_pid[3] = {Kp_pitch_roll, Ki_pitch_roll, Kd_pitch_roll};
 double current_ypr[3]={0,0,0};                //a copy of ypr, making it compatible with pid library
 double output[3];                             //raw output of pid
 double destined_ypr[3] = {0,0,0};
@@ -243,11 +246,11 @@ void setup()
   #endif
   Serial.begin(115200);
   //initialize device
-  Serial.println(F("Initializing I2C devices..."));
+  Serial.println("Initializing I2C");
   mpu.initialize();
-  Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
+  Serial.println(mpu.testConnection() ? "MPU6050 successful" : "MPU6050 failed");
   //initialize DMP
-  Serial.println(F("Initializing DMP..."));
+  Serial.println("Initializing DMP");
   devStatus = mpu.dmpInitialize();
   
   //gyro and accelerometer offset
@@ -274,18 +277,22 @@ void setup()
     mpu.setFreefallDetectionDuration(400);
     
     //setup ESC
-    Serial.println(F("Setting up ESCs..."));
+    Serial.println("ESCs");
     ESC_setup();
     
-    Serial.println(F("Setup complete, Ready to fly"));
+    //setup radio
+    Serial.println("Radio");
+    radio.begin();
+    radio.openReadingPipe(1,pipe);
+    radio.startListening();
+    Serial.println("Setup complete, Ready to fly");
   }else{
     // ERROR!
     // 1 = initial memory load failed
     // 2 = DMP configuration updates failed
     // (if it's going to break, usually the code will be 1)
-    Serial.print(F("DMP Initialization failed (code "));
+    Serial.print("DMP failed code ");
     Serial.print(devStatus);
-    Serial.println(F(")"));
   }
   
 }
@@ -311,12 +318,12 @@ void loop()
   Serial.print(ESCs_pid_offset[2]);
   Serial.print(F("\t"));
   Serial.print(ESCs_pid_offset[3]);*/
-  Serial.print(F("ypr: "));
+  /*Serial.print("ypr: ");
   Serial.print(current_ypr[0]);
-  Serial.print(F("\t"));
+  Serial.print("\t");
   Serial.print(current_ypr[1]);
-  Serial.print(F("\t"));
-  Serial.println(current_ypr[2]);
+  Serial.print("\t");
+  Serial.println(current_ypr[2]);*/
 }
 
 /***********************************************************
@@ -333,7 +340,7 @@ void interruptResponse()
   if((mpuIntStatus & 0x10) || fifoCount == 1024)
   {
     mpu.resetFIFO();
-    Serial.println(F("FIFO overflows"));
+    Serial.println("FIFO overflows");
     return;
    //Data is ready
   }
@@ -367,7 +374,7 @@ void interruptResponse()
   if(mpuIntStatus & 0x80)
   {
     if(flightStatus == GROUND){
-      Serial.println(F("Initiate free fall protection precedure"));
+      Serial.println("fall");
       freeFallTakeOff();
     }
   }
@@ -394,11 +401,21 @@ void controlESCs()
 void checkCommunication()
 {
   if(Serial.available())
-    throttle = Serial.parseInt();
-  if(throttle == 1)
+    throttle = Serial.parseInt();//get throttle from serial
+    if(throttle == 101) reset_yaw();
+  if(radio.available())
   {
-    destined_ypr[0] = current_ypr[0]; //calibrate
-    Serial.print("resetting yaw to ");
-    Serial.println(current_ypr[0]);
+    radio.read(&data, sizeof(char)); //get throttle from radio
+    int value = (int)data;
+    if(value == 101) reset_yaw();
+    value = constrain(value, 0, 100);
+    throttle = 12*value+MIN_RATE;
   }
+}
+
+void reset_yaw()
+{
+  destined_ypr[0] = current_ypr[0]; //calibrate
+  Serial.print("resetting yaw to ");
+  Serial.println(current_ypr[0]);
 }
