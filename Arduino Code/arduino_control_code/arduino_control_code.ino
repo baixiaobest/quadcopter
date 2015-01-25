@@ -85,10 +85,10 @@ int MAX_ESC_RATE = 2000;
 int MIN_ESC_RATE = 800;
 
 Servo ESC1, ESC2, ESC3, ESC4;
- int ESC1_CTR_PIN = 5;
- int ESC2_CTR_PIN = 6;
- int ESC3_CTR_PIN = 9;
- int ESC4_CTR_PIN = 10;
+ int ESC1_CTR_PIN = 9;
+ int ESC2_CTR_PIN = 10;
+ int ESC3_CTR_PIN = 5;
+ int ESC4_CTR_PIN = 6;
 
 int ESCs_pid_offset[4] = {0,0,0,0};
 
@@ -169,37 +169,39 @@ void PID_Pose::compute()
 /*a mapping function from raw PID output to actual offset in four ESCs*/
 void PID_Pose::interpret_output(double* raw_output, int* ESC_output)
 {
-  ESC_output[0]=0; ESC_output[1]=0; ESC_output[2]=0;
+  ESC_output[0]=0; ESC_output[1]=0; ESC_output[2]=0;ESC_output[3]=0;
   if(abs(m_destined_ypr[0]-m_current_ypr[0]) >= error_tolerance)
   {
-      ESC_output[0] = raw_output[0];
-      ESC_output[2] = raw_output[0];
-      ESC_output[1] = -raw_output[0];
-      ESC_output[3] = -raw_output[0];
-  }else if(abs(m_destined_ypr[1]-m_current_ypr[1]) >= error_tolerance)
+      ESC_output[0] += raw_output[0];
+      ESC_output[2] += raw_output[0];
+      ESC_output[1] -= raw_output[0];
+      ESC_output[3] -= raw_output[0];
+  }
+  if(abs(m_destined_ypr[1]-m_current_ypr[1]) >= error_tolerance)
   {
 
-      ESC_output[0] = raw_output[1];
-      ESC_output[1] = -raw_output[1];
-      ESC_output[2] = -raw_output[1];
-      ESC_output[3] = raw_output[1];
-  }else if(abs(m_destined_ypr[2]-m_current_ypr[2]) >= error_tolerance)
+      ESC_output[0] += raw_output[1];
+      ESC_output[1] -= raw_output[1];
+      ESC_output[2] -= raw_output[1];
+      ESC_output[3] += raw_output[1];
+  }
+  if(abs(m_destined_ypr[2]-m_current_ypr[2]) >= error_tolerance)
   {
 
-      ESC_output[0] = raw_output[2];
-      ESC_output[1] = raw_output[2];
-      ESC_output[2] = -raw_output[2];
-      ESC_output[3] = -raw_output[2];
+      ESC_output[0] += raw_output[2];
+      ESC_output[1] += raw_output[2];
+      ESC_output[2] -= raw_output[2];
+      ESC_output[3] -= raw_output[2];
   }
 }
 
 /************************************PID CONTROLLER******************************/
-double Kp_yaw = 1;
+double Kp_yaw = 0.7;
 double Ki_yaw = 0;
 double Kd_yaw = 0;
-double Kp_pitch_roll = 1;
+double Kp_pitch_roll = 0;
 double Ki_pitch_roll = 0;
-double Kd_pitch_roll = 0;
+double Kd_pitch_roll = 1;
 double K_yaw_pid[3] = {Kp_yaw, Ki_yaw, Kd_yaw};
 double K_pitch_pid[3] = {Kp_pitch_roll, Ki_pitch_roll, Kd_pitch_roll};
 double K_roll_pid[3] = {Kp_pitch_roll, Ki_pitch_roll, Kd_pitch_roll};
@@ -208,7 +210,7 @@ double output[3];                             //raw output of pid
 double destined_ypr[3] = {0,0,0};
 PID_Pose pose(current_ypr, output, destined_ypr, K_yaw_pid, K_pitch_pid, K_roll_pid,10);
 
-
+int last_time = millis();
 /***********************************************************
 ****                 INTERRUPT ROUTINE                  ****
 ***********************************************************/
@@ -228,12 +230,19 @@ void ESC_setup()
   ESC2.attach(ESC2_CTR_PIN);
   ESC3.attach(ESC3_CTR_PIN);
   ESC4.attach(ESC4_CTR_PIN);
+  /*ESC1.writeMicroseconds(MAX_ESC_RATE);
+  ESC2.writeMicroseconds(MAX_ESC_RATE);
+  ESC3.writeMicroseconds(MAX_ESC_RATE);
+  ESC4.writeMicroseconds(MAX_ESC_RATE);
+  delay(3000);*/
   ESC1.writeMicroseconds(MIN_ESC_RATE);
   ESC2.writeMicroseconds(MIN_ESC_RATE);
   ESC3.writeMicroseconds(MIN_ESC_RATE);
   ESC4.writeMicroseconds(MIN_ESC_RATE);
-  while(!Serial.available());
-  Serial.read();
+  //while(!radio.available());
+  /*while(!radio.available());
+  char junk;
+  radio.read(&junk, sizeof(char));*/
 }
 
 void setup()
@@ -276,15 +285,15 @@ void setup()
     mpu.setFreefallDetectionThreshold(50);
     mpu.setFreefallDetectionDuration(400);
     
-    //setup ESC
-    Serial.println("ESCs");
-    ESC_setup();
-    
     //setup radio
     Serial.println("Radio");
     radio.begin();
     radio.openReadingPipe(1,pipe);
     radio.startListening();
+    
+    //setup ESC
+    Serial.println("ESCs");
+    ESC_setup();
     Serial.println("Setup complete, Ready to fly");
   }else{
     // ERROR!
@@ -391,10 +400,23 @@ void freeFallTakeOff()
 void controlESCs()
 {
   if(throttle<MIN_ESC_RATE) throttle = MIN_ESC_RATE;
-  ESC1.writeMicroseconds(throttle+ESCs_pid_offset[0] < MIN_ESC_RATE ? MIN_ESC_RATE : throttle+ESCs_pid_offset[0]);
-  ESC2.writeMicroseconds(throttle+ESCs_pid_offset[1] < MIN_ESC_RATE ? MIN_ESC_RATE : throttle+ESCs_pid_offset[1]);
-  ESC3.writeMicroseconds(throttle+ESCs_pid_offset[2] < MIN_ESC_RATE ? MIN_ESC_RATE : throttle+ESCs_pid_offset[2]);
-  ESC4.writeMicroseconds(throttle+ESCs_pid_offset[3] < MIN_ESC_RATE ? MIN_ESC_RATE : throttle+ESCs_pid_offset[3]);
+  int ESC1_out = throttle+ESCs_pid_offset[0] < MIN_ESC_RATE ? MIN_ESC_RATE : throttle+ESCs_pid_offset[0];
+  int ESC2_out = throttle+ESCs_pid_offset[1] < MIN_ESC_RATE ? MIN_ESC_RATE : throttle+ESCs_pid_offset[1];
+  int ESC3_out = throttle+ESCs_pid_offset[2] < MIN_ESC_RATE ? MIN_ESC_RATE : throttle+ESCs_pid_offset[2];
+  int ESC4_out = throttle+ESCs_pid_offset[3] < MIN_ESC_RATE ? MIN_ESC_RATE : throttle+ESCs_pid_offset[3];
+  ESC1.writeMicroseconds(ESC1_out);
+  ESC2.writeMicroseconds(ESC2_out);
+  ESC3.writeMicroseconds(ESC3_out);
+  ESC4.writeMicroseconds(ESC4_out);
+  Serial.print(ESC1_out);
+  Serial.print(" ");
+  Serial.print(ESC2_out);
+  Serial.print(" ");
+  Serial.print(ESC3_out);
+  Serial.print(" ");
+  Serial.println(ESC4_out);
+
+  
 }
 
 /**********************************COMMUNICATION*********************************/
@@ -402,14 +424,19 @@ void checkCommunication()
 {
   if(Serial.available())
     throttle = Serial.parseInt();//get throttle from serial
-    if(throttle == 101) reset_yaw();
+    if(throttle == 101)
+    {
+      reset_yaw();
+      reset_pitch();
+      reset_roll();
+    }
   if(radio.available())
   {
     radio.read(&data, sizeof(char)); //get throttle from radio
     int value = (int)data;
     if(value == 101) reset_yaw();
-    value = constrain(value, 0, 100);
-    throttle = 12*value+MIN_RATE;
+    throttle = 12*value+MIN_ESC_RATE;
+    Serial.println(value);
   }
 }
 
@@ -418,4 +445,16 @@ void reset_yaw()
   destined_ypr[0] = current_ypr[0]; //calibrate
   Serial.print("resetting yaw to ");
   Serial.println(current_ypr[0]);
+}
+void reset_pitch()
+{
+  destined_ypr[1] = current_ypr[1]; //calibrate
+  Serial.print("resetting pitch to ");
+  Serial.println(current_ypr[1]);
+}
+void reset_roll()
+{
+  destined_ypr[2] = current_ypr[2]; //calibrate
+  Serial.print("resetting roll to ");
+  Serial.println(current_ypr[2]);
 }
