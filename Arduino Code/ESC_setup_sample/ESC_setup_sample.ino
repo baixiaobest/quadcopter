@@ -27,22 +27,22 @@ Servo ESC1, ESC2, ESC3, ESC4; //Create as much as Servoobject you want. You can 
 
 void setup() {
 
-  ESC1.attach(6); 
-  ESC2.attach(9);
-  ESC3.attach(10);
-  ESC4.attach(11);
+  ESC1.attach(5); 
+  //ESC2.attach(9);
+  //ESC3.attach(10);
+  //ESC4.attach(11);
   Serial.begin(9600);    // start serial at 9600 baud
   
-  /*Serial.println("Setting up max throttle");
-  ESC1.writeMicroseconds(MAX_ESC_RATE);
-  while(!Serial.available());
-  Serial.read();*/
+  //Serial.println("Setting up max throttle");
+  //ESC1.writeMicroseconds(MAX_ESC_RATE);
+  //while(!Serial.available());
+  //Serial.read();
   
   Serial.println("Setting up min throttle");
   ESC1.writeMicroseconds(MIN_ESC_RATE);
-  ESC2.writeMicroseconds(MIN_ESC_RATE);
-  ESC3.writeMicroseconds(MIN_ESC_RATE);
-  ESC4.writeMicroseconds(MIN_ESC_RATE);
+  //ESC2.writeMicroseconds(MIN_ESC_RATE);
+  //ESC3.writeMicroseconds(MIN_ESC_RATE);
+  //ESC4.writeMicroseconds(MIN_ESC_RATE);
   while(!Serial.available());
   Serial.read();
   
@@ -53,9 +53,9 @@ void loop() {
 //First connect your ESC WITHOUT Arming. Then Open Serial and follo Instructions
  
   ESC1.writeMicroseconds(value);
-  ESC2.writeMicroseconds(value);
-  ESC3.writeMicroseconds(value);
-  ESC4.writeMicroseconds(value);
+  //ESC2.writeMicroseconds(value);
+  //ESC3.writeMicroseconds(value);
+  //ESC4.writeMicroseconds(value);
  
   if(Serial.available()){ 
     value = Serial.parseInt();    // Parse an Integer from Serial
