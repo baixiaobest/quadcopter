@@ -107,7 +107,7 @@ void myoOnPose(Myo myo, long timestamp, Pose pose) {
 
 void myoOnOrientation(Myo myo, long timestamp, PVector orientation) {
   //println("Sketch: myoOnOrientation");
-  int data = (int) map(orientation.y, 0, 18, 100, 0);
+  int data = (int) map(orientation.y, 0, 18, 0, 100);
   if(previous_pitch!=data){
     if(data<=5) data = 0;
     myPort.write(data);

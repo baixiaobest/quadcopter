@@ -18,16 +18,17 @@
 ******************************************************************************/
 
 /************************DESCRIPTION OF QUADCOPTER ROTORS ARRANGEMENT***********
-                  motor 0 CCW    motor 3 CW               X
-                       (O)        (O)                     ^
-                        \         /                       |
-                          \  $  /                         |
-                            $$$                           |
-                            $$$               Y<----------+
-                          /     \
-                        /         \
-                      (O)          (O)
-                  motor 1 CW    motor 2 CCW
+                         motor 3 CW                             X
+                            (O)                                 ^
+                             |                                  |
+                             |                                  |
+                             $                                  |
+                  (0)-------$$$-------(O)                       |
+              motor 0 CCW   $$$    motor 2 CCW      Y<----------+
+                             |    
+                             |     
+                            (O)          
+                        motor 1 CW    
 /********************************************************************************/
 //select orientation representation mode here
 #define OUTPUT_READABLE_YAWPITCHROLL
@@ -113,7 +114,6 @@ char data;
 class PID_Pose
 {
   private:
-    VectorInt16 accWorld; //acceleration in world frame
     PID yaw_pid;
     PID pitch_pid;
     PID roll_pid;
@@ -150,9 +150,9 @@ PID_Pose::PID_Pose(double *current_ypr, double *output, double *destined_ypr,
   yaw_pid.SetMode(AUTOMATIC);
   pitch_pid.SetMode(AUTOMATIC);
   roll_pid.SetMode(AUTOMATIC);
-  yaw_pid.SetOutputLimits(-500,500);
-  pitch_pid.SetOutputLimits(-500,500);
-  roll_pid.SetOutputLimits(-500,500);
+  yaw_pid.SetOutputLimits(-200,200);
+  pitch_pid.SetOutputLimits(-200,200);
+  roll_pid.SetOutputLimits(-200,200);
   error_tolerance = 3;
 }
 
@@ -179,29 +179,24 @@ void PID_Pose::interpret_output(double* raw_output, int* ESC_output)
   }
   if(abs(m_destined_ypr[1]-m_current_ypr[1]) >= error_tolerance)
   {
-
-      ESC_output[0] += raw_output[1];
       ESC_output[1] -= raw_output[1];
-      ESC_output[2] -= raw_output[1];
       ESC_output[3] += raw_output[1];
   }
   if(abs(m_destined_ypr[2]-m_current_ypr[2]) >= error_tolerance)
   {
 
       ESC_output[0] += raw_output[2];
-      ESC_output[1] += raw_output[2];
       ESC_output[2] -= raw_output[2];
-      ESC_output[3] -= raw_output[2];
   }
 }
 
 /************************************PID CONTROLLER******************************/
-double Kp_yaw = 0.7;
+double Kp_yaw = 0;
 double Ki_yaw = 0;
 double Kd_yaw = 0;
-double Kp_pitch_roll = 0;
+double Kp_pitch_roll = 3;
 double Ki_pitch_roll = 0;
-double Kd_pitch_roll = 1;
+double Kd_pitch_roll = 7;
 double K_yaw_pid[3] = {Kp_yaw, Ki_yaw, Kd_yaw};
 double K_pitch_pid[3] = {Kp_pitch_roll, Ki_pitch_roll, Kd_pitch_roll};
 double K_roll_pid[3] = {Kp_pitch_roll, Ki_pitch_roll, Kd_pitch_roll};
@@ -230,19 +225,14 @@ void ESC_setup()
   ESC2.attach(ESC2_CTR_PIN);
   ESC3.attach(ESC3_CTR_PIN);
   ESC4.attach(ESC4_CTR_PIN);
-  /*ESC1.writeMicroseconds(MAX_ESC_RATE);
-  ESC2.writeMicroseconds(MAX_ESC_RATE);
-  ESC3.writeMicroseconds(MAX_ESC_RATE);
-  ESC4.writeMicroseconds(MAX_ESC_RATE);
-  delay(3000);*/
   ESC1.writeMicroseconds(MIN_ESC_RATE);
   ESC2.writeMicroseconds(MIN_ESC_RATE);
   ESC3.writeMicroseconds(MIN_ESC_RATE);
   ESC4.writeMicroseconds(MIN_ESC_RATE);
   //while(!radio.available());
-  /*while(!radio.available());
-  char junk;
-  radio.read(&junk, sizeof(char));*/
+  while(!radio.available() && !Serial.available());
+  //char junk;
+  //radio.read(&junk, sizeof(char));
 }
 
 void setup()
@@ -254,11 +244,9 @@ void setup()
     Fastwire::setup(400, true);
   #endif
   Serial.begin(115200);
-  //initialize device
   Serial.println("Initializing I2C");
   mpu.initialize();
   Serial.println(mpu.testConnection() ? "MPU6050 successful" : "MPU6050 failed");
-  //initialize DMP
   Serial.println("Initializing DMP");
   devStatus = mpu.dmpInitialize();
   
@@ -270,7 +258,7 @@ void setup()
   
   if(devStatus == 0)
   {
-    //turen on DMP
+    //turn on DMP
     mpu.setDMPEnabled(true);
     //enable interrupt on Arduino
     attachInterrupt(0, interruptRoutine, RISING);
@@ -278,9 +266,9 @@ void setup()
     dmpReady = true;
     //get packet size of DMP packet
     packetSize = mpu.dmpGetFIFOPacketSize();
-    //attach free fall interrupt
+    //attach free fall interrupt and DMP interrupt
     mpu.setIntEnabled(0x82);
-    //mpu.setIntFreefallEnabled(true);
+    
     //mpu.setFreefallDetectionCounterDecrement(uint8_t(1));
     mpu.setFreefallDetectionThreshold(50);
     mpu.setFreefallDetectionDuration(400);
@@ -294,12 +282,11 @@ void setup()
     //setup ESC
     Serial.println("ESCs");
     ESC_setup();
-    Serial.println("Setup complete, Ready to fly");
+    Serial.println("Setup complete, Ready to fly"); 
   }else{
     // ERROR!
     // 1 = initial memory load failed
     // 2 = DMP configuration updates failed
-    // (if it's going to break, usually the code will be 1)
     Serial.print("DMP failed code ");
     Serial.print(devStatus);
   }
@@ -351,7 +338,6 @@ void interruptResponse()
     mpu.resetFIFO();
     Serial.println("FIFO overflows");
     return;
-   //Data is ready
   }
   else if(mpuIntStatus & 0x02){
     //wait for correct available data length
@@ -424,7 +410,7 @@ void checkCommunication()
 {
   if(Serial.available())
     throttle = Serial.parseInt();//get throttle from serial
-    if(throttle == 101)
+    if(throttle == 101 || throttle == 0)
     {
       reset_yaw();
       reset_pitch();

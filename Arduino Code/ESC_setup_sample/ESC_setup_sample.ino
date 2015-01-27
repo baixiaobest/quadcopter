@@ -27,7 +27,7 @@ Servo ESC1, ESC2, ESC3, ESC4; //Create as much as Servoobject you want. You can 
 
 void setup() {
 
-  ESC1.attach(6); 
+  ESC1.attach(5); 
   //ESC2.attach(9);
   //ESC3.attach(10);
   //ESC4.attach(11);
