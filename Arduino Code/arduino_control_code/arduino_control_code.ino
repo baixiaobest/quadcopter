@@ -31,9 +31,6 @@
                             (O)          
                         motor 1 CW    
 /********************************************************************************/
-//select orientation representation mode here
-#define OUTPUT_READABLE_YAWPITCHROLL
-//#define OUTPUT_TEAPOT
 
 /*********************************INCLUDE LIBRARY HERE**************************/
 
@@ -64,7 +61,6 @@ MPU6050 mpu;
 //MPU variables
 bool dmpReady = false;  //state of DMP initializtion
 uint8_t mpuIntStatus;  //holds 1 byte of interrupt status from MPU6050 int_status register
-//it should be updated upon an interrupt
 uint8_t devStatus; //device status after each opertaion on device 0 for success
 uint16_t packetSize; //DMP packet size default to 42 bytes
 uint16_t fifoCount; //courrently available data size in fifo buffer of MPU6050
@@ -78,9 +74,6 @@ VectorInt16 aaWorld;  //[x, y, z]           gravity-free acceleration in world r
 VectorFloat gravity;  //[x, y, z]           gravity vector
 float euler[3];       //[psi, theta, phi]   Euler angle
 float ypr[3];         //[yaw, pitch, roll]  yaw/pitch/roll container and gravity vector
-
-//teapot demo
-uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\n' };
 
 /*********************************SETUP FOR ESC************************************/
 int MAX_ESC_RATE = 2000;
@@ -206,7 +199,6 @@ double output[3];                             //raw output of pid
 double destined_ypr[3] = {0,0,0};
 PID_Pose pose(current_ypr, output, destined_ypr, K_yaw_pid, K_pitch_pid, K_roll_pid,10);
 
-int last_time = millis();
 /***********************************************************
 ****                 INTERRUPT ROUTINE                  ****
 ***********************************************************/
