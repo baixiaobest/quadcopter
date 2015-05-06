@@ -80,10 +80,10 @@ int MAX_ESC_RATE = 2000;
 int MIN_ESC_RATE = 800;
 
 Servo ESC1, ESC2, ESC3, ESC4;
- int ESC1_CTR_PIN = 9;
- int ESC2_CTR_PIN = 10;
- int ESC3_CTR_PIN = 5;
- int ESC4_CTR_PIN = 6;
+ int ESC1_CTR_PIN = 5;
+ int ESC2_CTR_PIN = 6;
+ int ESC3_CTR_PIN = 9;
+ int ESC4_CTR_PIN = 10;
 
 int ESCs_pid_offset[4] = {0,0,0,0};
 
@@ -173,14 +173,14 @@ void PID_Pose::interpret_output(double* raw_output, int* ESC_output)
   }
   if(abs(m_destined_ypr[1]-m_current_ypr[1]) >= error_tolerance)
   {
-      ESC_output[1] -= raw_output[1];
-      ESC_output[3] += raw_output[1];
+      ESC_output[1] += raw_output[1];
+      ESC_output[3] -= raw_output[1];
   }
   if(abs(m_destined_ypr[2]-m_current_ypr[2]) >= error_tolerance)
   {
 
-      ESC_output[0] += raw_output[2];
-      ESC_output[2] -= raw_output[2];
+      ESC_output[0] -= raw_output[2];
+      ESC_output[2] += raw_output[2];
   }
 }
 
@@ -223,7 +223,7 @@ void ESC_setup()
   ESC3.writeMicroseconds(MIN_ESC_RATE);
   ESC4.writeMicroseconds(MIN_ESC_RATE);
   //while(!radio.available());
-  while(!radio.available() && !Serial.available());
+  while(!Serial.available());
   //char junk;
   //radio.read(&junk, sizeof(char));
 }
@@ -236,7 +236,7 @@ void setup()
   #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
     Fastwire::setup(400, true);
   #endif
-  Serial.begin(115200);
+  Serial.begin(9600);
   Serial.println("Initializing I2C");
   mpu.initialize();
   Serial.println(mpu.testConnection() ? "MPU6050 successful" : "MPU6050 failed");
@@ -267,10 +267,10 @@ void setup()
     mpu.setFreefallDetectionDuration(400);
     
     //setup radio
-    Serial.println("Radio");
+    /*Serial.println("Radio");
     radio.begin();
     radio.openReadingPipe(1,pipe);
-    radio.startListening();
+    radio.startListening();*/
     
     //setup ESC
     Serial.println("ESCs");
@@ -283,7 +283,7 @@ void setup()
     Serial.print("DMP failed code ");
     Serial.print(devStatus);
   }
-  
+  Serial.print("Setup Completed\n");
 }
 
 /***********************************************************
@@ -387,13 +387,13 @@ void controlESCs()
   ESC2.writeMicroseconds(ESC2_out);
   ESC3.writeMicroseconds(ESC3_out);
   ESC4.writeMicroseconds(ESC4_out);
-  Serial.print(ESC1_out);
+  /*Serial.print(ESC1_out);
   Serial.print(" ");
   Serial.print(ESC2_out);
   Serial.print(" ");
   Serial.print(ESC3_out);
   Serial.print(" ");
-  Serial.println(ESC4_out);
+  Serial.println(ESC4_out);*/
 
   
 }
@@ -401,22 +401,24 @@ void controlESCs()
 /**********************************COMMUNICATION*********************************/
 void checkCommunication()
 {
-  if(Serial.available())
+  if(Serial.available()){
     throttle = Serial.parseInt();//get throttle from serial
-    if(throttle == 101 || throttle == 0)
-    {
-      reset_yaw();
-      reset_pitch();
-      reset_roll();
-    }
-  if(radio.available())
+    Serial.println(throttle);
+  }
+  if(throttle == 101 || throttle == 0)
+  {
+    reset_yaw();
+    reset_pitch();
+    reset_roll();
+  }
+  /*if(radio.available())
   {
     radio.read(&data, sizeof(char)); //get throttle from radio
     int value = (int)data;
     if(value == 101) reset_yaw();
     throttle = 12*value+MIN_ESC_RATE;
     Serial.println(value);
-  }
+  }*/
 }
 
 void reset_yaw()

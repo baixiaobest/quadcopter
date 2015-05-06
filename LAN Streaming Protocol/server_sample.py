@@ -2,7 +2,7 @@ import socket
 import sys
 import os
 
-HOST = '10.120.54.48' #All available interfaces
+HOST = socket.gethostbyname(socket.gethostname()) #All available interfaces
 PORT = 8888 #Arbitrary non-priviledged port
 
 #create socket
