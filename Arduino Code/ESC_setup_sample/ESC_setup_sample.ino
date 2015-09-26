@@ -33,10 +33,10 @@ void setup() {
   //ESC4.attach(11);
   Serial.begin(9600);    // start serial at 9600 baud
   
-  //Serial.println("Setting up max throttle");
-  //ESC1.writeMicroseconds(MAX_ESC_RATE);
-  //while(!Serial.available());
-  //Serial.read();
+  Serial.println("Setting up max throttle");
+  ESC1.writeMicroseconds(MAX_ESC_RATE);
+  while(!Serial.available());
+  Serial.read();
   
   Serial.println("Setting up min throttle");
   ESC1.writeMicroseconds(MIN_ESC_RATE);
